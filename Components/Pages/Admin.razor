@@ -1,0 +1,148 @@
+﻿@page "/admin"
+@rendermode InteractiveServer
+
+
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+
+
+@using site.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+
+@inject UserManager<ApplicationUser> UserManager
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JS
+
+<h3>Admin Panel</h3>
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-info">@Message</div>
+}
+
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="Search by email..."
+           @bind="searchText" @bind:event="oninput" />
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th style="width: 180px;">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in FilteredUsers)
+        {
+            bool isAdmin = admins.Any(a => a.Id == user.Id);
+
+            <tr>
+                <td>@user.Email</td>
+                <td>@(isAdmin ? "Admin" : "User")</td>
+                <td>
+                    @if (isAdmin)
+                    {
+                        <button class="btn btn-danger btn-sm"
+                                @onclick="async () => await DemoteAdmin(user.Id)">
+                            Remove Admin
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary btn-sm"
+                                @onclick="async () => await PromoteUser(user.Id)">
+                            Make Admin
+                        </button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<ApplicationUser> users = new();
+    private List<ApplicationUser> admins = new();
+    private string? searchText;
+    private string? Message;
+
+
+    private IEnumerable<ApplicationUser> FilteredUsers =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? users
+            : users.Where(u => u.Email != null && u.Email.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshUserLists();
+    }
+
+    private async Task RefreshUserLists()
+    {
+        users = await DbContext.Users.OrderBy(u => u.Email).ToListAsync();
+
+        admins = await (from u in DbContext.Users
+                        join ur in DbContext.UserRoles on u.Id equals ur.UserId
+                        join r in DbContext.Roles on ur.RoleId equals r.Id
+                        where r.Name == "Admin"
+                        select u).ToListAsync();
+    }
+
+    private async Task PromoteUser(string userId)
+    {
+        Console.WriteLine($"PromoteUser clicked for ID: {userId}");
+        await JS.InvokeVoidAsync("console.log", $"PromoteUser clicked for {userId}");
+
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            Message = "User not found.";
+            StateHasChanged();
+            return;
+        }
+
+        var result = await UserManager.AddToRoleAsync(user, "Admin");
+        if (result.Succeeded)
+        {
+            Message = $"✅ {user.Email} promoted to Admin.";
+            await RefreshUserLists();
+        }
+        else
+        {
+            Message = "⚠️ Failed to promote user.";
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task DemoteAdmin(string userId)
+    {
+        Console.WriteLine($"DemoteAdmin clicked for ID: {userId}");
+        await JS.InvokeVoidAsync("console.log", $"DemoteAdmin clicked for {userId}");
+
+        var admin = await UserManager.FindByIdAsync(userId);
+        if (admin == null)
+        {
+            Message = "Admin not found.";
+            StateHasChanged();
+            return;
+        }
+
+        var result = await UserManager.RemoveFromRoleAsync(admin, "Admin");
+        if (result.Succeeded)
+        {
+            Message = $"❌ {admin.Email} demoted.";
+            await RefreshUserLists();
+        }
+        else
+        {
+            Message = "⚠️ Failed to demote admin.";
+        }
+
+        StateHasChanged();
+    }
+}
