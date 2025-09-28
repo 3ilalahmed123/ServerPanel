@@ -2,7 +2,6 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
-
 @attribute [Authorize(Roles = "Admin")]
 
 @inject site.Services.GameServerService GameServerService
@@ -58,8 +57,16 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await RefreshServerStatus();
+    }
+
+    private async Task RefreshServerStatus()
+    {
         try
         {
+            isLoading = true;
+            StateHasChanged();
+
             Logger.LogInformation("🔄 [ServerStatus] Fetching server info...");
             serverInfo = await GameServerService.GetInfoAsync();
             players = await GameServerService.GetPlayersAsync();
@@ -81,6 +88,7 @@ else
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -90,7 +98,7 @@ else
         {
             firstRender = false;
 
-            // Now that the circuit is alive, we can safely log to browser console
+            // Safe to do JS logging now
             if (hasError)
             {
                 await JS.InvokeVoidAsync("console.error", "❌ Failed to fetch server info (see server logs)");
@@ -103,6 +111,16 @@ else
             {
                 await JS.InvokeVoidAsync("console.log", $"✅ Server online: {serverInfo.Name}");
             }
+
+            // 🔄 Auto-refresh every 30 seconds
+            _ = Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    await InvokeAsync(RefreshServerStatus);
+                }
+            });
         }
     }
 }
