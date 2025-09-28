@@ -20,14 +20,15 @@ public class CssServerService
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = "bash",
-                Arguments = "-c \"sudo -u cssserver ./cssserver details\"",
+                FileName = "sudo",
+                Arguments = "-u cssserver ./cssserver details",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                WorkingDirectory = "/home/cssserver", // where ./cssserver lives
+                WorkingDirectory = "/home/cssserver",
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
 
             using var process = new Process { StartInfo = startInfo };
             process.Start();
