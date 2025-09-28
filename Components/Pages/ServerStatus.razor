@@ -13,16 +13,19 @@
 <!-- Tabs -->
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
-        <button class="nav-link @(activeTab == "status" ? "active" : "")" @onclick="() => SwitchTab(" status")">
+        <button class="nav-link @(activeTab == "status" ? "active" : "")"
+                @onclick='() => SwitchTab("status")'>
             📊 Status
         </button>
     </li>
     <li class="nav-item">
-        <button class="nav-link @(activeTab == "terminal" ? "active" : "")" @onclick="() => SwitchTab(" terminal")">
+        <button class="nav-link @(activeTab == "terminal" ? "active" : "")"
+                @onclick='() => SwitchTab("terminal")'>
             💻 Terminal
         </button>
     </li>
 </ul>
+
 
 @if (activeTab == "status")
 {
@@ -66,7 +69,6 @@ else if (activeTab == "terminal")
     private string? serverDetails;
     private bool isLoading = true;
     private bool hasError = false;
-    private bool firstRender = true;
 
     // Terminal state
     private string command = "details";
