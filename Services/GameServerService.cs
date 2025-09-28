@@ -1,7 +1,6 @@
 ﻿using QueryMaster;
 using QueryMaster.GameServer;
 using Microsoft.Extensions.Logging;
-using System.Net;
 
 namespace site.Services;
 
@@ -15,21 +14,15 @@ public class GameServerService
     {
         _logger = logger;
 
-        // 🏠 Prefer localhost first, fallback to environment or public IP
-        var localhost = "127.0.0.1";
-        var envIp = Environment.GetEnvironmentVariable("GAMESERVER_IP");
-        var publicIp = Environment.GetEnvironmentVariable("INTERNET_IP") ?? GetPublicIp();
-
-        _ipCandidates = new[] { localhost, envIp, publicIp }
-            .Where(ip => !string.IsNullOrWhiteSpace(ip))
-            .Distinct()
-            .ToArray();
+        // Try localhost first, then public IP
+        var publicIp = Environment.GetEnvironmentVariable("GAMESERVER_PUBLIC_IP") ?? "51.89.166.121";
+        _ipCandidates = new[] { "127.0.0.1", publicIp };
 
         _port = ushort.TryParse(Environment.GetEnvironmentVariable("GAMESERVER_PORT"), out var p)
             ? p
             : (ushort)27015;
 
-        _logger.LogInformation($"🎯 GameServerService initialized with candidates: {string.Join(", ", _ipCandidates)} (Port: {_port})");
+        _logger.LogInformation($"🎯 GameServerService initialized. IP candidates: {string.Join(", ", _ipCandidates)} Port: {_port}");
     }
 
     public async Task<ServerInfo?> GetInfoAsync()
@@ -49,14 +42,15 @@ public class GameServerService
 
                 if (server == null)
                 {
-                    _logger.LogWarning($"⚠️ Failed to create server instance for {ip}:{_port}");
+                    _logger.LogWarning($"⚠️ Could not create QueryMaster instance for {ip}");
                     continue;
                 }
 
                 var info = await Task.Run(() => server.GetInfo());
+
                 if (info != null)
                 {
-                    _logger.LogInformation($"✅ Server responded via {ip}: {info.Name} | Map: {info.Map} | Players: {info.Players}/{info.MaxPlayers}");
+                    _logger.LogInformation($"✅ Server online at {ip}:{_port} | Name: {info.Name} | Map: {info.Map} | Players: {info.Players}/{info.MaxPlayers}");
                     return info;
                 }
 
@@ -64,7 +58,7 @@ public class GameServerService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"❌ Query failed for {ip}:{_port}");
+                _logger.LogError(ex, $"❌ Error while querying {ip}:{_port}");
             }
         }
 
@@ -89,7 +83,7 @@ public class GameServerService
 
                 if (server == null)
                 {
-                    _logger.LogWarning($"⚠️ Failed to create server instance for {ip}:{_port}");
+                    _logger.LogWarning($"⚠️ Could not create QueryMaster instance for {ip}");
                     continue;
                 }
 
@@ -99,25 +93,10 @@ public class GameServerService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"❌ Player query failed for {ip}:{_port}");
+                _logger.LogError(ex, $"❌ Error while querying players from {ip}:{_port}");
             }
         }
 
-        _logger.LogError("🚨 All IP candidates failed. Returning empty player list.");
         return Array.Empty<PlayerInfo>();
-    }
-
-    private static string GetPublicIp()
-    {
-        try
-        {
-            // Best-effort attempt to get VPS public IP
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-            return client.GetStringAsync("https://api.ipify.org").Result;
-        }
-        catch
-        {
-            return "51.89.166.121"; // fallback to hardcoded known IP
-        }
     }
 }
