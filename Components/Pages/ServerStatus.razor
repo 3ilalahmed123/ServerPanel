@@ -8,32 +8,69 @@
 @inject ILogger<Pages.ServerStatus> Logger
 @inject IJSRuntime JS
 
-<h3>Counter-Strike: Source Server Status</h3>
+<h3>Counter-Strike: Source Server</h3>
 
-@if (isLoading)
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "status" ? "active" : "")" @onclick="() => SwitchTab(" status")">
+            📊 Status
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == "terminal" ? "active" : "")" @onclick="() => SwitchTab(" terminal")">
+            💻 Terminal
+        </button>
+    </li>
+</ul>
+
+@if (activeTab == "status")
 {
-    <p>Loading server info...</p>
+    @if (isLoading)
+    {
+        <p>Loading server info...</p>
+    }
+    else if (hasError)
+    {
+        <div class="alert alert-danger">
+            ⚠️ Failed to retrieve server info. Check logs for details.
+        </div>
+    }
+    else if (string.IsNullOrWhiteSpace(serverDetails))
+    {
+        <p>Server returned no details.</p>
+    }
+    else
+    {
+        <pre class="bg-dark text-light p-3" style="white-space: pre-wrap;">@serverDetails</pre>
+    }
 }
-else if (hasError)
+else if (activeTab == "terminal")
 {
-    <div class="alert alert-danger">
-        ⚠️ Failed to retrieve server info. Check logs for details.
+    <div class="mb-3">
+        <input class="form-control" placeholder="Enter command (e.g., restart, stop, start, details)"
+               @bind="command" @bind:event="oninput" />
+        <button class="btn btn-primary mt-2" @onclick="RunCommand">Run</button>
     </div>
-}
-else if (string.IsNullOrWhiteSpace(serverDetails))
-{
-    <p>Server returned no details.</p>
-}
-else
-{
-    <pre>@serverDetails</pre> <!-- Show LinuxGSM output nicely -->
+
+    @if (!string.IsNullOrEmpty(commandOutput))
+    {
+        <pre class="bg-dark text-light p-3" style="white-space: pre-wrap;">@commandOutput</pre>
+    }
 }
 
 @code {
+    // State
+    private string activeTab = "status";
+
     private string? serverDetails;
     private bool isLoading = true;
     private bool hasError = false;
     private bool firstRender = true;
+
+    // Terminal state
+    private string command = "details";
+    private string? commandOutput;
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,13 +88,9 @@ else
             serverDetails = await CssServerService.GetServerDetailsAsync();
 
             if (!string.IsNullOrWhiteSpace(serverDetails))
-            {
                 Logger.LogInformation("✅ CSS server details retrieved.");
-            }
             else
-            {
                 Logger.LogWarning("⚠️ CSS server returned no output.");
-            }
         }
         catch (Exception ex)
         {
@@ -69,6 +102,17 @@ else
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private void SwitchTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private async Task RunCommand()
+    {
+        Logger.LogInformation($"💻 Running CSS server command: {command}");
+        commandOutput = await CssServerService.RunCommandAsync(command);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRenderCall)
@@ -84,13 +128,15 @@ else
             else
                 await JS.InvokeVoidAsync("console.log", "✅ CSS server details retrieved successfully");
 
-            // Auto-refresh every 30 seconds
+            // Auto-refresh every 30 seconds (only if on Status tab)
             _ = Task.Run(async () =>
             {
                 while (true)
                 {
+                    if (activeTab == "status")
+                        await InvokeAsync(RefreshServerStatus);
+
                     await Task.Delay(TimeSpan.FromSeconds(30));
-                    await InvokeAsync(RefreshServerStatus);
                 }
             });
         }
