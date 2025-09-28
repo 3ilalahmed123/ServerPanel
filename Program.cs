@@ -39,6 +39,7 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 builder.Services.AddSingleton<GameServerService>();
 
+builder.Services.AddScoped<site.Services.CssServerService>();
 
 
 var app = builder.Build();

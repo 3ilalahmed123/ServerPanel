@@ -6,36 +6,31 @@ namespace site.Services;
 public class CssServerService
 {
     private readonly ILogger<CssServerService> _logger;
-    private readonly string _scriptPath;
 
     public CssServerService(ILogger<CssServerService> logger)
     {
         _logger = logger;
-        _scriptPath = "/home/cssserver/cssserver"; // Path to your CSS LinuxGSM script
     }
 
     public async Task<string> GetServerDetailsAsync()
     {
         try
         {
-            var psi = new ProcessStartInfo
+            _logger.LogInformation("🔧 Running ./cssserver details as cssserver user...");
+
+            var startInfo = new ProcessStartInfo
             {
-                FileName = "sudo",
-                ArgumentList = { "-u", "cssserver", _scriptPath, "details" },
+                FileName = "bash",
+                Arguments = "-c \"sudo -u cssserver ./cssserver details\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                WorkingDirectory = "/home/cssserver", // where ./cssserver lives
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
 
-            _logger.LogInformation("🔧 Running LinuxGSM CSS details as cssserver...");
-
-            using var process = Process.Start(psi);
-            if (process == null)
-            {
-                _logger.LogError("❌ Failed to start cssserver process.");
-                return "Error: process could not start.";
-            }
+            using var process = new Process { StartInfo = startInfo };
+            process.Start();
 
             string output = await process.StandardOutput.ReadToEndAsync();
             string error = await process.StandardError.ReadToEndAsync();
@@ -44,15 +39,15 @@ public class CssServerService
 
             if (!string.IsNullOrWhiteSpace(error))
             {
-                _logger.LogWarning("⚠️ cssserver reported errors: {Error}", error);
+                _logger.LogWarning($"⚠️ CssServerService stderr: {error}");
             }
 
-            _logger.LogInformation("✅ cssserver details retrieved successfully.");
+            _logger.LogInformation("✅ cssserver details executed successfully.");
             return output;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Error while retrieving cssserver details");
+            _logger.LogError(ex, "❌ Failed to execute cssserver details.");
             return $"Error: {ex.Message}";
         }
     }
