@@ -1,0 +1,43 @@
+﻿@page "/serverstatus"
+
+@using Microsoft.AspNetCore.Authorization
+
+@attribute [Authorize] 
+
+@inject site.Services.GameServerService GameServerService
+
+<h3>Game Server Status</h3>
+
+@if (serverInfo == null)
+{
+    <p>Server is offline or unreachable.</p>
+}
+else
+{
+    <p><b>Name:</b> @serverInfo.Name</p>
+    <p><b>Map:</b> @serverInfo.Map</p>
+    <p><b>Players:</b> @serverInfo.Players / @serverInfo.MaxPlayers</p>
+    <p><b>Ping:</b> @serverInfo.Ping ms</p>
+
+    @if (players.Length > 0)
+    {
+        <h4>Players:</h4>
+        <ul>
+            @foreach (var p in players)
+            {
+                <li>@p.Name - @p.Score points - @p.Time.ToString("mm':'ss")</li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private QueryMaster.GameServer.ServerInfo? serverInfo;
+    private QueryMaster.GameServer.PlayerInfo[] players = Array.Empty<QueryMaster.GameServer.PlayerInfo>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        serverInfo = await GameServerService.GetInfoAsync();
+        players = await GameServerService.GetPlayersAsync();
+    }
+}

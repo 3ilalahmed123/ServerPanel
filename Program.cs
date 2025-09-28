@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using site.Components;
 using site.Components.Account;
 using site.Data;
+using site.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +36,14 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+builder.Services.AddSingleton(sp =>
+    new GameServerService("127.0.0.1", 27015)); // or your public IP
+
+
 var app = builder.Build();
+
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
