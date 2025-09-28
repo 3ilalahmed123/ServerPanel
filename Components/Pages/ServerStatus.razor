@@ -2,11 +2,11 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.JSInterop
 
 @attribute [Authorize(Roles = "Admin")]
 
 @inject site.Services.GameServerService GameServerService
+@inject ILogger<Pages.ServerStatus> Logger
 @inject IJSRuntime JS
 
 <h3>Game Server Status</h3>
@@ -54,39 +54,55 @@ else
 
     private bool isLoading = true;
     private bool hasError = false;
+    private bool firstRender = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            Console.WriteLine("🔄 [ServerStatus] Fetching server info...");
-            await JS.InvokeVoidAsync("console.log", "🔄 [ServerStatus] Fetching server info...");
-
+            Logger.LogInformation("🔄 [ServerStatus] Fetching server info...");
             serverInfo = await GameServerService.GetInfoAsync();
             players = await GameServerService.GetPlayersAsync();
 
             if (serverInfo != null)
             {
-                Console.WriteLine($"✅ [ServerStatus] Server online: {serverInfo.Name}, {serverInfo.Players}/{serverInfo.MaxPlayers} players");
-                await JS.InvokeVoidAsync("console.log", $"✅ Server online: {serverInfo.Name}");
+                Logger.LogInformation($"✅ Server online: {serverInfo.Name} ({serverInfo.Players}/{serverInfo.MaxPlayers})");
             }
             else
             {
-                Console.WriteLine("⚠️ [ServerStatus] Server returned null (offline?)");
-                await JS.InvokeVoidAsync("console.warn", "⚠️ Server returned null (offline?)");
+                Logger.LogWarning("⚠️ Server returned null (offline?)");
             }
         }
         catch (Exception ex)
         {
             hasError = true;
-            Console.WriteLine($"❌ [ServerStatus] Error: {ex.Message}");
-            Console.WriteLine(ex);
-            await JS.InvokeVoidAsync("console.error", $"❌ Error: {ex.Message}");
+            Logger.LogError(ex, "❌ Failed to fetch server info");
         }
         finally
         {
             isLoading = false;
-            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRenderCall)
+    {
+        if (firstRenderCall)
+        {
+            firstRender = false;
+
+            // Now that the circuit is alive, we can safely log to browser console
+            if (hasError)
+            {
+                await JS.InvokeVoidAsync("console.error", "❌ Failed to fetch server info (see server logs)");
+            }
+            else if (serverInfo == null)
+            {
+                await JS.InvokeVoidAsync("console.warn", "⚠️ Server is offline or returned null");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("console.log", $"✅ Server online: {serverInfo.Name}");
+            }
         }
     }
 }
