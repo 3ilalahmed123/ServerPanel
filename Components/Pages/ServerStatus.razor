@@ -2,14 +2,26 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 
-@attribute [Authorize(Roles ="Admin")] 
+@attribute [Authorize(Roles = "Admin")]
 
 @inject site.Services.GameServerService GameServerService
+@inject IJSRuntime JS
 
 <h3>Game Server Status</h3>
 
-@if (serverInfo == null)
+@if (isLoading)
+{
+    <p>Loading server info...</p>
+}
+else if (hasError)
+{
+    <div class="alert alert-danger">
+        ⚠️ Failed to retrieve server info. Check logs for details.
+    </div>
+}
+else if (serverInfo == null)
 {
     <p>Server is offline or unreachable.</p>
 }
@@ -30,15 +42,51 @@ else
             }
         </ul>
     }
+    else
+    {
+        <p>No players currently connected.</p>
+    }
 }
 
 @code {
     private QueryMaster.GameServer.ServerInfo? serverInfo;
     private QueryMaster.GameServer.PlayerInfo[] players = Array.Empty<QueryMaster.GameServer.PlayerInfo>();
 
+    private bool isLoading = true;
+    private bool hasError = false;
+
     protected override async Task OnInitializedAsync()
     {
-        serverInfo = await GameServerService.GetInfoAsync();
-        players = await GameServerService.GetPlayersAsync();
+        try
+        {
+            Console.WriteLine("🔄 [ServerStatus] Fetching server info...");
+            await JS.InvokeVoidAsync("console.log", "🔄 [ServerStatus] Fetching server info...");
+
+            serverInfo = await GameServerService.GetInfoAsync();
+            players = await GameServerService.GetPlayersAsync();
+
+            if (serverInfo != null)
+            {
+                Console.WriteLine($"✅ [ServerStatus] Server online: {serverInfo.Name}, {serverInfo.Players}/{serverInfo.MaxPlayers} players");
+                await JS.InvokeVoidAsync("console.log", $"✅ Server online: {serverInfo.Name}");
+            }
+            else
+            {
+                Console.WriteLine("⚠️ [ServerStatus] Server returned null (offline?)");
+                await JS.InvokeVoidAsync("console.warn", "⚠️ Server returned null (offline?)");
+            }
+        }
+        catch (Exception ex)
+        {
+            hasError = true;
+            Console.WriteLine($"❌ [ServerStatus] Error: {ex.Message}");
+            Console.WriteLine(ex);
+            await JS.InvokeVoidAsync("console.error", $"❌ Error: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 }
