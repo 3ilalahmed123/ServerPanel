@@ -115,8 +115,11 @@ else if (activeTab == "terminal")
     private async Task RunCommand()
     {
         Logger.LogInformation($"💻 Running CSS server command: {command}");
+        commandOutput = "Fetching..."; // Clear terminal before running command
+        StateHasChanged();    // Force UI update to show blank terminal
         commandOutput = await CssServerService.RunCommandAsync(command);
     }
+
 
     protected override async Task OnAfterRenderAsync(bool firstRenderCall)
     {
