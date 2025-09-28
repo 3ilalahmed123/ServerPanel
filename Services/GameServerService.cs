@@ -1,6 +1,7 @@
 ﻿using QueryMaster;
 using QueryMaster.GameServer;
 using Microsoft.Extensions.Logging;
+using System.Net.Sockets;
 
 namespace site.Services;
 
@@ -25,10 +26,33 @@ public class GameServerService
         _logger.LogInformation($"🎯 GameServerService initialized. IP candidates: {string.Join(", ", _ipCandidates)} Port: {_port}");
     }
 
+    // 🔧 Quick TCP pre-check before using QueryMaster
+    private bool CanConnect(string ip, int port)
+    {
+        try
+        {
+            using var client = new TcpClient();
+            var result = client.BeginConnect(ip, port, null, null);
+            bool success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(500));
+            return success && client.Connected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<ServerInfo?> GetInfoAsync()
     {
         foreach (var ip in _ipCandidates)
         {
+            _logger.LogInformation($"🔍 Checking TCP connectivity to {ip}:{_port}");
+            if (!CanConnect(ip, _port))
+            {
+                _logger.LogWarning($"⛔ Cannot open TCP connection to {ip}:{_port} — skipping QueryMaster call.");
+                continue;
+            }
+
             try
             {
                 _logger.LogInformation($"🔄 Querying server info at {ip}:{_port}");
@@ -70,6 +94,13 @@ public class GameServerService
     {
         foreach (var ip in _ipCandidates)
         {
+            _logger.LogInformation($"🔍 Checking TCP connectivity to {ip}:{_port}");
+            if (!CanConnect(ip, _port))
+            {
+                _logger.LogWarning($"⛔ Cannot open TCP connection to {ip}:{_port} — skipping player query.");
+                continue;
+            }
+
             try
             {
                 _logger.LogInformation($"🔄 Querying player list at {ip}:{_port}");
@@ -97,6 +128,7 @@ public class GameServerService
             }
         }
 
+        _logger.LogError("🚨 All IP candidates failed. Could not get player list.");
         return Array.Empty<PlayerInfo>();
     }
 }
