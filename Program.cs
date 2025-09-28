@@ -37,8 +37,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
-builder.Services.AddSingleton(sp =>
-    new GameServerService("127.0.0.1", 27015)); // or your public IP
+builder.Services.AddSingleton<GameServerService>();
+
 
 
 var app = builder.Build();
