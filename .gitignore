@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 /Data/app.db
+
+#Remove Appsettings
+Properties/launchSettings.json
