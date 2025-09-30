@@ -1,4 +1,6 @@
-﻿@implements IDisposable
+﻿@inject site.Services.CssServerService CssServerService
+
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
 
@@ -18,39 +20,34 @@
             </NavLink>
         </div>
 
-@*         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div> 
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-            </NavLink>
-        </div>*@
-
-
         <AuthorizeView Roles="Admin">
             <Authorized>
-                 <div class="nav-item px-3">
+                <div class="nav-item px-3 d-flex align-items-center">
+                    <NavLink class="nav-link" href="serverstatus">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
+                        }
+                        else
+                        {
+                            @if (isServerStarted)
+                            {
+                                <span class="circle-glow bg-success me-2"></span>
+                            }
+                            else
+                            {
+                                <span class="circle-glow bg-danger me-2"></span>
+                            }
+                        }
+                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Server Status
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin">
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Admin Panel
                     </NavLink>
                 </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="serverstatus">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Server Status
-                    </NavLink>
-                </div> 
             </Authorized>
-
         </AuthorizeView>
 
         <AuthorizeView>
@@ -89,11 +86,16 @@
 
 @code {
     private string? currentUrl;
+    private bool isLoading = true;
+    private bool isServerStarted = false;
+    private CancellationTokenSource? statusCts;
 
     protected override void OnInitialized()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
+        statusCts = new CancellationTokenSource();
+        _ = CheckServerStatusLoop(statusCts.Token);
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -102,9 +104,59 @@
         StateHasChanged();
     }
 
+    private async Task CheckServerStatusLoop(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            await CheckServerStatus();
+            await Task.Delay(TimeSpan.FromSeconds(30), token);
+        }
+    }
+
+    private async Task CheckServerStatus()
+    {
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var details = await CssServerService.GetServerDetailsAsync();
+            isServerStarted = details.Contains("started", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            isServerStarted = false;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        statusCts?.Cancel();
+        statusCts?.Dispose();
     }
 }
+<style>
+.circle-glow {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px 2px rgba(0,255,0,0.6);
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.bg-success {
+    background-color: #28a745 !important;
+    box-shadow: 0 0 8px 2px rgba(40,167,69,0.6);
+}
+.bg-danger {
+    background-color: #dc3545 !important;
+    box-shadow: 0 0 8px 2px rgba(220,53,69,0.6);
+}
+</style>
 
