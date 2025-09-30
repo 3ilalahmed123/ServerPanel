@@ -1,5 +1,4 @@
 ﻿@inject site.Services.CssServerService CssServerService
-@inject HttpClient Http
 
 @implements IDisposable
 
@@ -120,7 +119,7 @@
         StateHasChanged();
         try
         {
-            isServerStarted = await Http.GetFromJsonAsync<bool>("api/server/is-started");
+            isServerStarted = await CssServerService.IsServerStartedAsync();
         }
         catch
         {
