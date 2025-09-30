@@ -86,4 +86,9 @@ public class CssServerService
         }
     }
 
+    public async Task<bool> IsServerStartedAsync()
+    {
+        var details = await GetServerDetailsAsync();
+        return details.Contains("STARTED", StringComparison.OrdinalIgnoreCase);
+    }
 }
