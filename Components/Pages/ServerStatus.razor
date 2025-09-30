@@ -26,7 +26,6 @@
     </li>
 </ul>
 
-
 @if (activeTab == "status")
 {
     @if (isLoading)
@@ -63,37 +62,44 @@ else if (activeTab == "terminal")
 }
 
 @code {
-    // State
     private string activeTab = "status";
-
     private string? serverDetails;
     private bool isLoading = true;
     private bool hasError = false;
-    private bool firstRender = true;
 
-    // Terminal state
     private string command = "details";
     private string? commandOutput;
 
-    protected override async Task OnInitializedAsync()
+    private CancellationTokenSource? refreshCts;
+
+    protected override void OnInitialized()
     {
-        await RefreshServerStatus();
+        // UI renders immediately, data fetch starts after first render
     }
 
-    private async Task RefreshServerStatus()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            await FetchServerStatusAsync();
+
+            // Start auto-refresh loop
+            refreshCts = new CancellationTokenSource();
+            _ = AutoRefreshLoop(refreshCts.Token);
+        }
+    }
+
+    private async Task FetchServerStatusAsync()
+    {
+        isLoading = true;
+        hasError = false;
+        StateHasChanged();
+
         try
         {
-            isLoading = true;
-            StateHasChanged();
-
             Logger.LogInformation("🔄 [ServerStatus] Fetching CSS server details...");
             serverDetails = await CssServerService.GetServerDetailsAsync();
-
-            if (!string.IsNullOrWhiteSpace(serverDetails))
-                Logger.LogInformation("✅ CSS server details retrieved.");
-            else
-                Logger.LogWarning("⚠️ CSS server returned no output.");
+            Logger.LogInformation("✅ CSS server details retrieved.");
         }
         catch (Exception ex)
         {
@@ -107,44 +113,35 @@ else if (activeTab == "terminal")
         }
     }
 
+    private async Task AutoRefreshLoop(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            if (activeTab == "status")
+                await InvokeAsync(FetchServerStatusAsync);
+
+            await Task.Delay(TimeSpan.FromSeconds(30), token);
+        }
+    }
+
     private void SwitchTab(string tab)
     {
         activeTab = tab;
+        StateHasChanged();
     }
 
     private async Task RunCommand()
     {
         Logger.LogInformation($"💻 Running CSS server command: {command}");
-        commandOutput = "Fetching..."; // Clear terminal before running command
-        StateHasChanged();    // Force UI update to show blank terminal
+        commandOutput = "Fetching...";
+        StateHasChanged();
         commandOutput = await CssServerService.RunCommandAsync(command);
+        StateHasChanged();
     }
 
-
-    protected override async Task OnAfterRenderAsync(bool firstRenderCall)
+    public void Dispose()
     {
-        if (firstRenderCall)
-        {
-            firstRender = false;
-
-            if (hasError)
-                await JS.InvokeVoidAsync("console.error", "❌ Failed to fetch CSS server details (see logs)");
-            else if (string.IsNullOrWhiteSpace(serverDetails))
-                await JS.InvokeVoidAsync("console.warn", "⚠️ CSS server returned no output");
-            else
-                await JS.InvokeVoidAsync("console.log", "✅ CSS server details retrieved successfully");
-
-            // Auto-refresh every 30 seconds (only if on Status tab)
-            _ = Task.Run(async () =>
-            {
-                while (true)
-                {
-                    if (activeTab == "status")
-                        await InvokeAsync(RefreshServerStatus);
-
-                    await Task.Delay(TimeSpan.FromSeconds(30));
-                }
-            });
-        }
+        refreshCts?.Cancel();
+        refreshCts?.Dispose();
     }
 }
