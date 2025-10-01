@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
@@ -15,19 +16,21 @@ public class GameConfigService
 
     // Allowed editable files for a given profile (top 3)
     public IReadOnlyList<string> GetEditableFiles(string profileName) =>
-        new[] { "_default.cfg", "common.cfg", $"{profileName}.cfg", $"mapcycle.txt"};
+    new[] { "_default.cfg", "common.cfg", $"{profileName}.cfg", "mapcycle.txt" };
 
     private static string BuildConfigPath(string profileName, string fileName)
     {
-        // Mapcycle lives under serverfiles/cstrike
-        if (fileName.Equals("mapcycle.txt", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(fileName, "mapcycle.txt", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/home/{profileName}/serverfiles/cstrike/mapcycle.txt";
+            return $"/home/{profileName}/serverfiles/cstrike/cfg/{fileName}";
         }
 
-        // Default LGSM config files
         return $"/home/{profileName}/lgsm/config-lgsm/{profileName}/{fileName}";
     }
+
+
+
+
 
 
     public async Task<string> ReadConfigAsync(string profileName, string userName, string fileName)
