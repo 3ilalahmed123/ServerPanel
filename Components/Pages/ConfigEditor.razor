@@ -1,0 +1,116 @@
+﻿@page "/configedit/{ProfileName}/{FileName?}"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@implements IDisposable
+
+@inject site.Services.GameConfigService ConfigService
+@inject ILogger<ConfigEditor> Logger
+
+<h3>Config Editor — @ProfileName</h3>
+
+<div class='mb-3'>
+    <label class='form-label'>File</label>
+    <select class='form-select' @bind='FileName' >
+        @foreach (var f in editableFiles)
+        {
+            <option value='@f'>@f</option>
+        }
+    </select>
+</div>
+
+<div class='mb-3'>
+    <label class='form-label'>Contents</label>
+    <textarea class='form-control' style='min-height: 50vh; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;'
+              @bind='fileContent'></textarea>
+</div>
+
+<div class='d-flex gap-2'>
+    <button class='btn btn-primary' @onclick='Save'>Save</button>
+    <button class='btn btn-secondary' @onclick='Reload'>Reload</button>
+    @if (!string.IsNullOrEmpty(status))
+    {
+        <span class='ms-3'>@status</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string ProfileName { get; set; } = default!;
+    [Parameter] public string? FileName { get; set; }
+
+    private string UserName => ProfileName; // same user as profile for LinuxGSM
+    private List<string> editableFiles = new();
+    private string fileContent = string.Empty;
+    private string status = string.Empty;
+    private CancellationTokenSource? cts;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        editableFiles = ConfigService.GetEditableFiles(ProfileName).ToList();
+
+        // Default file if none provided
+        if (string.IsNullOrWhiteSpace(FileName))
+            FileName = $"{ProfileName}.cfg";
+
+        // If incoming FileName isn't allowed, snap to default
+        if (!editableFiles.Contains(FileName, StringComparer.OrdinalIgnoreCase))
+            FileName = $"{ProfileName}.cfg";
+
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+
+        await LoadFile();
+    }
+
+    private async Task LoadFile()
+    {
+        status = "Loading...";
+        StateHasChanged();
+        try
+        {
+            fileContent = await ConfigService.ReadConfigAsync(ProfileName, UserName, FileName!);
+            status = "Loaded";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load config for {Profile}/{File}", ProfileName, FileName);
+            status = $"Error loading: {ex.Message}";
+            fileContent = string.Empty;
+        }
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        status = "Saving...";
+        StateHasChanged();
+        try
+        {
+            await ConfigService.WriteConfigAsync(ProfileName, UserName, FileName!, fileContent);
+            status = "Saved";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save config for {Profile}/{File}", ProfileName, FileName);
+            status = $"Error saving: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+
+    private async Task Reload()
+    {
+        await LoadFile();
+    }
+
+    private async Task OnFileChanged(ChangeEventArgs _)
+    {
+        await LoadFile();
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+}

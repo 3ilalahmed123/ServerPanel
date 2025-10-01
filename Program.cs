@@ -53,6 +53,7 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 //builder.Services.AddSingleton<OldGameServerService>(); Still exists but not used
 builder.Services.AddSingleton<GameServerService>();
+builder.Services.AddSingleton<GameConfigService>();
 
 //builder.Services.AddScoped<site.Services.CssServerService>();
 
