@@ -6,7 +6,7 @@
 @implements IDisposable
 
 @inject site.Services.GameServerService GameServerService
-@inject ILogger Logger
+@inject ILogger<Pages.ServerStatus> Logger
 @inject IJSRuntime JS
 
 <h3>@ProfileName Server</h3>
