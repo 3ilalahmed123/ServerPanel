@@ -1,4 +1,4 @@
-﻿@page "/configedit/{ProfileName}/{FileName}"
+﻿@page "/configedit/{ProfileName}/{FileName?}"
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -10,28 +10,30 @@
 
 <h3>Config Editor — @ProfileName</h3>
 
-<div class='mb-3'>
-    <label class='form-label'>File</label>
-    <select class='form-select' @bind='FileName' >
+<div class="mb-3">
+    <label class="form-label">File</label>
+    <select class="form-select" @bind="FileName" @onchange="OnFileChanged">
         @foreach (var f in editableFiles)
         {
-            <option value='@f'>@f</option>
+            <option value="@f">@f</option>
         }
     </select>
 </div>
 
-<div class='mb-3'>
-    <label class='form-label'>Contents</label>
-    <textarea class='form-control' style='min-height: 50vh; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;'
-              @bind='fileContent'></textarea>
+<div class="mb-3">
+    <label class="form-label">Contents</label>
+    <textarea class="form-control"
+              style="min-height: 50vh; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
+              @bind="fileContent">
+    </textarea>
 </div>
 
-<div class='d-flex gap-2'>
-    <button class='btn btn-primary' @onclick='Save'>Save</button>
-    <button class='btn btn-secondary' @onclick='Reload'>Reload</button>
+<div class="d-flex gap-2">
+    <button class="btn btn-primary" @onclick="Save">Save</button>
+    <button class="btn btn-secondary" @onclick="Reload">Reload</button>
     @if (!string.IsNullOrEmpty(status))
     {
-        <span class='ms-3'>@status</span>
+        <span class="ms-3">@status</span>
     }
 </div>
 
@@ -39,7 +41,7 @@
     [Parameter] public string ProfileName { get; set; } = default!;
     [Parameter] public string? FileName { get; set; }
 
-    private string UserName => ProfileName; // same user as profile for LinuxGSM
+    private string UserName => ProfileName; 
     private List<string> editableFiles = new();
     private string fileContent = string.Empty;
     private string status = string.Empty;
@@ -49,11 +51,9 @@
     {
         editableFiles = ConfigService.GetEditableFiles(ProfileName).ToList();
 
-        // Default file if none provided
         if (string.IsNullOrWhiteSpace(FileName))
             FileName = $"{ProfileName}.cfg";
 
-        // If incoming FileName isn't allowed, snap to default
         if (!editableFiles.Contains(FileName, StringComparer.OrdinalIgnoreCase))
             FileName = $"{ProfileName}.cfg";
 
