@@ -12,7 +12,7 @@
 
 <div class="mb-3">
     <label class="form-label">File</label>
-    <select class="form-select" @bind="FileName" @onchange="OnFileChanged">
+    <select class="form-select" @bind="FileName" @bind:after="OnFileChanged">
         @foreach (var f in editableFiles)
         {
             <option value="@f">@f</option>
@@ -103,10 +103,11 @@
         await LoadFile();
     }
 
-    private async Task OnFileChanged(ChangeEventArgs _)
+    private async Task OnFileChanged()
     {
         await LoadFile();
     }
+
 
     public void Dispose()
     {
