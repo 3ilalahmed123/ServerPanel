@@ -75,7 +75,7 @@ public class GameConfigService
         var psi = new ProcessStartInfo
         {
             FileName = "sudo",
-            Arguments = $"-u {userName} tee {path} >/dev/null",
+            Arguments = $"-u {userName} tee {path}",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -98,4 +98,5 @@ public class GameConfigService
             throw new InvalidOperationException($"Failed to write config: {stderr}");
         }
     }
+
 }
