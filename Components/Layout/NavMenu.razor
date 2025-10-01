@@ -1,4 +1,4 @@
-﻿@inject site.Services.CssServerService CssServerService
+﻿@inject site.Services.GameServerService gameServerService
 
 @implements IDisposable
 
@@ -22,26 +22,23 @@
 
         <AuthorizeView Roles="Admin">
             <Authorized>
+                <!-- Counter-Strike: Source Server -->
                 <div class="nav-item px-3 d-flex align-items-center">
-                    <NavLink class="nav-link" href="serverstatus">
-                        @if (isLoading)
-                        {
-                            <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
-                        }
-                        else
-                        {
-                            @if (isServerStarted)
-                            {
-                                <span class="circle-glow bg-success me-2"></span>
-                            }
-                            else
-                            {
-                                <span class="circle-glow bg-danger me-2"></span>
-                            }
-                        }
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Server Status
+                    <NavLink class="nav-link" href="serverstatus/cssserver">
+                        <span class="circle-glow bg-success me-2"></span>
+                        <span class="bi bi-hdd-stack" aria-hidden="true"></span> CSS Server
                     </NavLink>
                 </div>
+
+                <!-- Team Fortress 2 Server -->
+                <div class="nav-item px-3 d-flex align-items-center">
+                    <NavLink class="nav-link" href="serverstatus/tf2server">
+                        <span class="circle-glow bg-success me-2"></span>
+                        <span class="bi bi-hdd-stack" aria-hidden="true"></span> TF2 Server
+                    </NavLink>
+                </div>
+
+                <!-- Admin Panel -->
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin">
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Admin Panel
@@ -50,9 +47,10 @@
             </Authorized>
         </AuthorizeView>
 
+
         <AuthorizeView>
-            <Authorized> 
-       
+            <Authorized>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Manage">
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
@@ -87,8 +85,21 @@
 @code {
     private string? currentUrl;
     private bool isLoading = true;
-    private bool isServerStarted = false;
+
+    //fixme = make dynamic
+    private bool isCssServerStarted = false;
+    private bool isTf2ServerStarted = false;
+
+    // SERVERSSSS
+    private Dictionary<string, string> servers = new()
+{
+    { "cssserver", "cssserver" },
+    { "tf2server", "tf2server" }
+};
+    private Dictionary<string, bool> serverStatus = new();
+
     private CancellationTokenSource? statusCts;
+
 
     protected override void OnInitialized()
     {
@@ -113,49 +124,73 @@
         }
     }
 
-    private async Task CheckServerStatus()
-    {
-        isLoading = true;
-        StateHasChanged();
-        try
-        {
-            isServerStarted = await CssServerService.IsServerStartedAsync();
-        }
-        catch
-        {
-            isServerStarted = false;
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
 
-    public void Dispose()
+
+
+
+
+
+
+
+@using site.Services;
+    private async Task CheckServerStatus()
+{
+    isLoading = true;
+    StateHasChanged();
+
+    try
     {
-        NavigationManager.LocationChanged -= OnLocationChanged;
-        statusCts?.Cancel();
-        statusCts?.Dispose();
+        foreach (var server in servers)
+        {
+            var profile = server.Key;
+            var user = server.Value;
+            var isRunning = await gameServerService.IsServerStartedAsync(profile, user);
+
+            serverStatus[profile] = isRunning;
+        }
     }
+    catch (Exception)
+    {
+        foreach (var key in servers.Keys)
+        {
+            serverStatus[key] = false;
+        }
+    }
+    finally
+    {
+        isLoading = false;
+        StateHasChanged();
+    }
+}
+
+
+
+public void Dispose()
+{
+    NavigationManager.LocationChanged -= OnLocationChanged;
+    statusCts?.Cancel();
+    statusCts?.Dispose();
+}
 }
 <style>
-.circle-glow {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    box-shadow: 0 0 8px 2px rgba(0,255,0,0.6);
-    margin-right: 4px;
-    vertical-align: middle;
-}
-.bg-success {
-    background-color: #28a745 !important;
-    box-shadow: 0 0 8px 2px rgba(40,167,69,0.6);
-}
-.bg-danger {
-    background-color: #dc3545 !important;
-    box-shadow: 0 0 8px 2px rgba(220,53,69,0.6);
-}
+    .circle-glow {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        box-shadow: 0 0 8px 2px rgba(0,255,0,0.6);
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+
+    .bg-success {
+        background-color: #28a745 !important;
+        box-shadow: 0 0 8px 2px rgba(40,167,69,0.6);
+    }
+
+    .bg-danger {
+        background-color: #dc3545 !important;
+        box-shadow: 0 0 8px 2px rgba(220,53,69,0.6);
+    }
 </style>
 

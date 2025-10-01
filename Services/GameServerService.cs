@@ -1,134 +1,97 @@
-﻿using QueryMaster;
-using QueryMaster.GameServer;
+﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using System.Net.Sockets;
 
-namespace site.Services;
-
-public class GameServerService
+namespace site.Services
 {
-    private readonly ILogger<GameServerService> _logger;
-    private readonly string[] _ipCandidates;
-    private readonly ushort _port;
-
-    public GameServerService(ILogger<GameServerService> logger)
+    public class GameServerService
     {
-        _logger = logger;
+        private readonly ILogger<GameServerService> _logger;
+        private static readonly Regex AnsiRegex = new(@"\x1B\[[0-9;]*[A-Za-z]", RegexOptions.Compiled);
 
-        // Try localhost first, then public IP
-        var publicIp = Environment.GetEnvironmentVariable("GAMESERVER_PUBLIC_IP") ?? "51.89.166.121";
-        _ipCandidates = new[] { "127.0.0.1", publicIp };
-
-        _port = ushort.TryParse(Environment.GetEnvironmentVariable("GAMESERVER_PORT"), out var p)
-            ? p
-            : (ushort)27015;
-
-        _logger.LogInformation($"🎯 GameServerService initialized. IP candidates: {string.Join(", ", _ipCandidates)} Port: {_port}");
-    }
-
-    // 🔧 Quick TCP pre-check before using QueryMaster
-    private bool CanConnect(string ip, int port)
-    {
-        try
+        public GameServerService(ILogger<GameServerService> logger)
         {
-            using var client = new TcpClient();
-            var result = client.BeginConnect(ip, port, null, null);
-            bool success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(500));
-            return success && client.Connected;
+            _logger = logger;
         }
-        catch
-        {
-            return false;
-        }
-    }
 
-    public async Task<ServerInfo?> GetInfoAsync()
-    {
-        foreach (var ip in _ipCandidates)
+        public async Task<string> GetServerDetailsAsync(string profileName, string userName)
         {
-            _logger.LogInformation($"🔍 Checking TCP connectivity to {ip}:{_port}");
-            if (!CanConnect(ip, _port))
-            {
-                _logger.LogWarning($"⛔ Cannot open TCP connection to {ip}:{_port} — skipping QueryMaster call.");
-                continue;
-            }
+            string executablePath = $"/home/{profileName}/{profileName}";
 
             try
             {
-                _logger.LogInformation($"🔄 Querying server info at {ip}:{_port}");
-                using var server = ServerQuery.GetServerInstance(
-                    EngineType.Source,
-                    ip,
-                    _port,
-                    sendTimeout: 2000,
-                    receiveTimeout: 2000
-                );
-
-                if (server == null)
+                var startInfo = new ProcessStartInfo
                 {
-                    _logger.LogWarning($"⚠️ Could not create QueryMaster instance for {ip}");
-                    continue;
-                }
+                    FileName = "sudo",
+                    Arguments = $"-u {userName} {executablePath} details",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
 
-                var info = await Task.Run(() => server.GetInfo());
+                using var process = new Process { StartInfo = startInfo };
+                process.Start();
 
-                if (info != null)
-                {
-                    _logger.LogInformation($"✅ Server online at {ip}:{_port} | Name: {info.Name} | Map: {info.Map} | Players: {info.Players}/{info.MaxPlayers}");
-                    return info;
-                }
+                string output = await process.StandardOutput.ReadToEndAsync();
+                string error = await process.StandardError.ReadToEndAsync();
 
-                _logger.LogWarning($"⚠️ server.GetInfo() returned null from {ip}:{_port}");
+                await process.WaitForExitAsync();
+
+                if (!string.IsNullOrEmpty(error))
+                    _logger.LogWarning($"⚠️ stderr: {error}");
+
+                output = AnsiRegex.Replace(output, string.Empty);
+                return output;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"❌ Error while querying {ip}:{_port}");
+                _logger.LogError(ex, $"❌ Failed to get server details for {profileName}");
+                return $"ERROR: {ex.Message}";
             }
         }
 
-        _logger.LogError("🚨 All IP candidates failed. Could not get server info.");
-        return null;
-    }
-
-    public async Task<PlayerInfo[]> GetPlayersAsync()
-    {
-        foreach (var ip in _ipCandidates)
+        public async Task<string> RunCommandAsync(string profileName, string userName, string args)
         {
-            _logger.LogInformation($"🔍 Checking TCP connectivity to {ip}:{_port}");
-            if (!CanConnect(ip, _port))
-            {
-                _logger.LogWarning($"⛔ Cannot open TCP connection to {ip}:{_port} — skipping player query.");
-                continue;
-            }
+            string executablePath = $"/home/{profileName}/{profileName}";
 
             try
             {
-                _logger.LogInformation($"🔄 Querying player list at {ip}:{_port}");
-                using var server = ServerQuery.GetServerInstance(
-                    EngineType.Source,
-                    ip,
-                    _port,
-                    sendTimeout: 2000,
-                    receiveTimeout: 2000
-                );
-
-                if (server == null)
+                var startInfo = new ProcessStartInfo
                 {
-                    _logger.LogWarning($"⚠️ Could not create QueryMaster instance for {ip}");
-                    continue;
-                }
+                    FileName = "sudo",
+                    Arguments = $"-u {userName} {executablePath} {args}",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
 
-                var players = await Task.Run(() => server.GetPlayers()?.ToArray() ?? Array.Empty<PlayerInfo>());
-                _logger.LogInformation($"📊 Retrieved {players.Length} players from {ip}.");
-                return players;
+                using var process = new Process { StartInfo = startInfo };
+                process.Start();
+
+                string output = await process.StandardOutput.ReadToEndAsync();
+                string error = await process.StandardError.ReadToEndAsync();
+
+                await process.WaitForExitAsync();
+
+                output = AnsiRegex.Replace(output, string.Empty);
+                if (!string.IsNullOrEmpty(error))
+                    output += $"\n⚠️ stderr: {error}";
+
+                return output;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"❌ Error while querying players from {ip}:{_port}");
+                _logger.LogError(ex, $"❌ Failed to run command '{args}' for {profileName}");
+                return $"ERROR: {ex.Message}";
             }
         }
 
-        _logger.LogError("🚨 All IP candidates failed. Could not get player list.");
-        return Array.Empty<PlayerInfo>();
+        public async Task<bool> IsServerStartedAsync(string profileName, string userName)
+        {
+            var details = await GetServerDetailsAsync(profileName, userName);
+            return details.Contains("STARTED", StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

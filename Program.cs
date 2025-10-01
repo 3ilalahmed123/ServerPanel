@@ -28,7 +28,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
+builder.Services.AddAuthorization();
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -51,9 +51,10 @@ builder.Services.Configure<IdentityOptions>(options =>
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+//builder.Services.AddSingleton<OldGameServerService>(); Still exists but not used
 builder.Services.AddSingleton<GameServerService>();
 
-builder.Services.AddScoped<site.Services.CssServerService>();
+//builder.Services.AddScoped<site.Services.CssServerService>();
 
 // Enable logging output to console + syslog/journal
 builder.Logging.ClearProviders();
@@ -100,7 +101,12 @@ else
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
+
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

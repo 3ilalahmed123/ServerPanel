@@ -1,42 +1,41 @@
-﻿@page "/serverstatus/{ProfileName}/{UserName?}"
+﻿@page "/cssserverstatus"
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Admin")]
-@implements IDisposable
 
-@inject site.Services.GameServerService GameServerService
-@inject ILogger Logger
+@inject site.Services.CssServerService CssServerService
+@inject ILogger<Pages.CssServerStatus> Logger
 @inject IJSRuntime JS
 
-<h3>@ProfileName Server</h3>
+<h3>Counter-Strike: Source Server</h3>
 
+<!-- Tabs -->
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
         <button class="nav-link @(activeTab == "status" ? "active" : "")"
                 @onclick='() => SwitchTab("status")'>
-            Status
+            📊 Status
         </button>
     </li>
     <li class="nav-item">
         <button class="nav-link @(activeTab == "terminal" ? "active" : "")"
                 @onclick='() => SwitchTab("terminal")'>
-            Terminal
+            💻 Terminal
         </button>
     </li>
 </ul>
 
-
 @if (activeTab == "status")
 {
-    if (isLoading)
+    @if (isLoading)
     {
         <p>Loading server info...</p>
     }
     else if (hasError)
     {
         <div class="alert alert-danger">
-            Failed to retrieve server info. Check logs for details.
+            ⚠️ Failed to retrieve server info. Check logs for details.
         </div>
     }
     else if (string.IsNullOrWhiteSpace(serverDetails))
@@ -63,22 +62,28 @@ else if (activeTab == "terminal")
 }
 
 @code {
-    [Parameter] public string ProfileName { get; set; } = "cssserver";
-    [Parameter] public string? UserName { get; set; } = "cssserver";
-
     private string activeTab = "status";
     private string? serverDetails;
     private bool isLoading = true;
-    private bool hasError;
+    private bool hasError = false;
+
     private string command = "details";
     private string? commandOutput;
+
     private CancellationTokenSource? refreshCts;
+
+    protected override void OnInitialized()
+    {
+        // UI renders immediately, data fetch starts after first render
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await FetchServerStatusAsync();
+
+            // Start auto-refresh loop
             refreshCts = new CancellationTokenSource();
             _ = AutoRefreshLoop(refreshCts.Token);
         }
@@ -92,14 +97,14 @@ else if (activeTab == "terminal")
 
         try
         {
-            Logger.LogInformation("Fetching details for {Profile}", ProfileName);
-            serverDetails = await GameServerService.GetServerDetailsAsync(ProfileName, UserName ?? ProfileName);
-            Logger.LogInformation("Server details retrieved for {Profile}", ProfileName);
+            Logger.LogInformation("🔄 [ServerStatus] Fetching CSS server details...");
+            serverDetails = await CssServerService.GetServerDetailsAsync();
+            Logger.LogInformation("✅ CSS server details retrieved.");
         }
         catch (Exception ex)
         {
             hasError = true;
-            Logger.LogError(ex, "Failed to fetch details for {Profile}", ProfileName);
+            Logger.LogError(ex, "❌ Failed to fetch CSS server details");
         }
         finally
         {
@@ -127,11 +132,10 @@ else if (activeTab == "terminal")
 
     private async Task RunCommand()
     {
-        Logger.LogInformation("Running command on {Profile}: {Command}", ProfileName, command);
+        Logger.LogInformation($"💻 Running CSS server command: {command}");
         commandOutput = "Fetching...";
         StateHasChanged();
-
-        commandOutput = await GameServerService.RunCommandAsync(ProfileName, UserName ?? ProfileName, command);
+        commandOutput = await CssServerService.RunCommandAsync(command);
         StateHasChanged();
     }
 
