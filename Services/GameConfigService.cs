@@ -21,42 +21,31 @@ public class GameConfigService
         {
         "_default.cfg",
         "common.cfg",
-        $"{profileName}.cfg",
-        "mapcycle.txt",
-        "cssserver.cfg"
+        $"{profileName}.cfg",      // LinuxGSM instance config
+        $"{profileName}-server.cfg", // serverfiles cfg (alias)
+        "mapcycle.txt"
     };
     }
 
 
+
     private static string BuildConfigPath(string profileName, string fileName)
     {
-        // Mapcycle.txt special case
+        // LinuxGSM cfg
+        if (string.Equals(fileName, $"{profileName}.cfg", StringComparison.OrdinalIgnoreCase))
+            return $"/home/{profileName}/lgsm/config-lgsm/{profileName}/{fileName}";
+
+        // Server gameplay config
+        if (string.Equals(fileName, $"{profileName}-server.cfg", StringComparison.OrdinalIgnoreCase))
+            return $"/home/{profileName}/serverfiles/cstrike/cfg/{profileName}.cfg";
+
+        // Mapcycle.txt
         if (string.Equals(fileName, "mapcycle.txt", StringComparison.OrdinalIgnoreCase))
-        {
-            var path = $"/home/{profileName}/serverfiles/cstrike/mapcycle.txt";
+            return $"/home/{profileName}/serverfiles/cstrike/cfg/mapcycle.txt";
 
-            // If missing, copy from default
-            if (!File.Exists(path))
-            {
-                var defaultPath = $"/home/{profileName}/serverfiles/cstrike/cfg/mapcycle_default.txt";
-                if (File.Exists(defaultPath))
-                    File.Copy(defaultPath, path);
-                else
-                    File.WriteAllText(path, string.Empty);
-            }
-
-            return path;
-        }
-
-
-        // CSS and TF2 server.cfg special case
-        if (string.Equals(fileName, "cssserver.cfg", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(fileName, "server.cfg", StringComparison.OrdinalIgnoreCase))
-            return $"/home/{profileName}/serverfiles/cstrike/cfg/{fileName}";
-
-        // Default LGSM config .cfg files
-        return $"/home/{profileName}/lgsm/config-lgsm/{profileName}/{fileName}";
+        throw new InvalidOperationException("File not allowed.");
     }
+
 
 
 
