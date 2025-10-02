@@ -8,10 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="Components\Pages\ConfigEditor.razor" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Page Include="Components\Pages\ServerStatus.razor" />
   </ItemGroup>
 
@@ -21,10 +17,6 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.20" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.20" />
     <PackageReference Include="QueryMaster" Version="1.1.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EditorConfigFiles Include="Components\Pages\ConfigEditor.razor" />
   </ItemGroup>
 
 </Project>
