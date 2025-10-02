@@ -15,18 +15,49 @@ public class GameConfigService
     }
 
     // Allowed editable files for a given profile (top 3)
-    public IReadOnlyList<string> GetEditableFiles(string profileName) =>
-    new[] { "_default.cfg", "common.cfg", $"{profileName}.cfg", "mapcycle.txt" };
+    public IReadOnlyList<string> GetEditableFiles(string profileName)
+    {
+        return new[]
+        {
+        "_default.cfg",
+        "common.cfg",
+        $"{profileName}.cfg",
+        "mapcycle.txt",
+        "cssserver.cfg"
+    };
+    }
+
 
     private static string BuildConfigPath(string profileName, string fileName)
     {
+        // Mapcycle.txt special case
         if (string.Equals(fileName, "mapcycle.txt", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/home/{profileName}/serverfiles/cstrike/cfg/{fileName}";
+            var path = $"/home/{profileName}/serverfiles/cstrike/mapcycle.txt";
+
+            // If missing, copy from default
+            if (!File.Exists(path))
+            {
+                var defaultPath = $"/home/{profileName}/serverfiles/cstrike/cfg/mapcycle_default.txt";
+                if (File.Exists(defaultPath))
+                    File.Copy(defaultPath, path);
+                else
+                    File.WriteAllText(path, string.Empty);
+            }
+
+            return path;
         }
 
+
+        // CSS and TF2 server.cfg special case
+        if (string.Equals(fileName, "cssserver.cfg", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, "server.cfg", StringComparison.OrdinalIgnoreCase))
+            return $"/home/{profileName}/serverfiles/cstrike/cfg/{fileName}";
+
+        // Default LGSM config .cfg files
         return $"/home/{profileName}/lgsm/config-lgsm/{profileName}/{fileName}";
     }
+
 
 
 
