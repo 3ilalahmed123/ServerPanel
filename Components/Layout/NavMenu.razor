@@ -25,26 +25,19 @@
                 <!-- CSS -->
                 <div class="nav-item px-3 d-flex align-items-center">
                     <NavLink class="nav-link" href="serverstatus/cssserver">
-                        <span class="bi bi-hdd-stack me-2" aria-hidden="true"></span> CSS Server
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="configedit/cssserver/cssserver.cfg">
-                        <span class="bi bi-pencil-square me-2" aria-hidden="true"></span> Edit Config
+                        <span class="circle-glow @(serverStatus.TryGetValue("cssserver", out var cssUp) && cssUp ? "bg-success" : "bg-danger") me-2"></span>
+                        <span class="bi bi-hdd-stack" aria-hidden="true"></span> CSS Server
                     </NavLink>
                 </div>
 
                 <!-- TF2 -->
                 <div class="nav-item px-3 d-flex align-items-center">
                     <NavLink class="nav-link" href="serverstatus/tf2server">
-                        <span class="bi bi-hdd-stack me-2" aria-hidden="true"></span> TF2 Server
+                        <span class="circle-glow @(serverStatus.TryGetValue("tf2server", out var tf2Up) && tf2Up ? "bg-success" : "bg-danger") me-2"></span>
+                        <span class="bi bi-hdd-stack" aria-hidden="true"></span> TF2 Server
                     </NavLink>
                 </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="configedit/tf2server/tf2server.cfg">
-                        <span class="bi bi-pencil-square me-2" aria-hidden="true"></span> Edit Config
-                    </NavLink>
-                </div>
+
 
 
 @*                 <!-- Counter-Strike: Source Server -->
